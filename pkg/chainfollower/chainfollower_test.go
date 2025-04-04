@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	"dogecoin.org/chainfollower/internal/messages"
+	"dogecoin.org/chainfollower/internal/rpc"
 	"dogecoin.org/chainfollower/internal/state"
-	support "dogecoin.org/chainfollower/internal/support"
 	"dogecoin.org/chainfollower/internal/types"
 )
 
 func TestBlockMessageReceived(t *testing.T) {
-	testTransport := support.NewTestTransport()
+	testTransport := rpc.NewTestRpcTransport()
 
 	t.Log("Waiting for message XXX")
 
@@ -64,7 +64,7 @@ func TestBlockMessageReceived(t *testing.T) {
 }
 
 func TestRollbackMessage(t *testing.T) {
-	testTransport := support.NewTestTransport()
+	testTransport := rpc.NewTestRpcTransport()
 
 	t.Log("Waiting for message XXX")
 

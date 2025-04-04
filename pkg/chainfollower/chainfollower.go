@@ -11,8 +11,8 @@ import (
 	"dogecoin.org/chainfollower/internal/commands"
 	"dogecoin.org/chainfollower/internal/doge"
 	"dogecoin.org/chainfollower/internal/messages"
+	"dogecoin.org/chainfollower/internal/rpc"
 	"dogecoin.org/chainfollower/internal/state"
-	"dogecoin.org/chainfollower/internal/transport"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 )
 
 type ChainFollower struct {
-	transport          transport.Transport
+	rpc                rpc.RpcTransportInterface
 	chain              *doge.ChainParams
 	Commands           chan any                         // receive ReSyncChainFollowerCmd etc.
 	stopping           bool                             // set to exit the main loop.
@@ -35,8 +35,8 @@ type ChainFollower struct {
 	// receive signals from the main loop.
 }
 
-func NewChainFollower(transport transport.Transport) *ChainFollower {
-	return &ChainFollower{transport: transport, MessageChannelSize: 0}
+func NewChainFollower(rpc rpc.RpcTransportInterface) *ChainFollower {
+	return &ChainFollower{rpc: rpc, MessageChannelSize: 0}
 }
 
 func (c *ChainFollower) Start(chainState *state.ChainPos) chan messages.Message {
@@ -65,15 +65,15 @@ func (c *ChainFollower) handleSignals() {
 }
 
 func (c *ChainFollower) serviceMain(chainState *state.ChainPos) {
-	chainPos, err := c.FetchStartingPos(chainState)
+	chainPos, err := c.fetchStartingPos(chainState)
 
 	if err != nil {
-		log.Println("ChainFollower: FetchStartingPos failed:", err)
+		log.Println("ChainFollower: fetchStartingPos failed:", err)
 		return
 	}
 
 	for {
-		blockHeader, err := c.transport.GetBlockHeader(chainPos.BlockHash)
+		blockHeader, err := c.rpc.GetBlockHeader(chainPos.BlockHash)
 		if err != nil {
 			log.Println("ChainFollower: GetBlockHeader failed:", err)
 			return
@@ -82,7 +82,7 @@ func (c *ChainFollower) serviceMain(chainState *state.ChainPos) {
 		if blockHeader.IsOnChain() {
 			if !chainPos.WaitingForNextHash {
 				fmt.Println("ChainFollower: GetBlock", chainPos.BlockHash)
-				block, err := c.transport.GetBlock(blockHeader.Hash)
+				block, err := c.rpc.GetBlock(blockHeader.Hash)
 				if err != nil {
 					log.Println("ChainFollower: GetBlock failed:", err)
 					return
@@ -127,23 +127,11 @@ func (c *ChainFollower) serviceMain(chainState *state.ChainPos) {
 	}
 }
 
-// LOOP
-// - Fetch Block Header from Position (Position.BlockHash)
-
-// - Block Header still on chain?
-//     - Emit 'Block Message'
-//     - Update Position to Next Hash
-// - Block Header no longer on chain?
-//     - Walk back until we find a block is on chain (this is the new height)
-//     - Emit 'Rollback Message' with new Block Height/Hash
-//     - Update Position
-// LOOP
-
 func (c *ChainFollower) rollbackToOnChainBlock(fromHash string) (*state.ChainPos, error) {
 	for {
 		// Fetch the block header for the previous block.
 		log.Println("ChainFollower: fetching previous header:", fromHash)
-		block, err := c.transport.GetBlockHeader(fromHash)
+		block, err := c.rpc.GetBlockHeader(fromHash)
 		if err != nil {
 			log.Println("ChainFollower: GetBlockHeader failed:", err)
 			return nil, err
@@ -165,10 +153,10 @@ func (c *ChainFollower) rollbackToOnChainBlock(fromHash string) (*state.ChainPos
 	}
 }
 
-func (c *ChainFollower) FetchStartingPos(initialChainPos *state.ChainPos) (*state.ChainPos, error) {
+func (c *ChainFollower) fetchStartingPos(initialChainPos *state.ChainPos) (*state.ChainPos, error) {
 	// Retry loop for transaction error or wrong-chain error.
 	for {
-		genesisHash, err := c.transport.GetBlockHash(0)
+		genesisHash, err := c.rpc.GetBlockHash(0)
 		if err != nil {
 			return nil, err
 		}
@@ -184,7 +172,7 @@ func (c *ChainFollower) FetchStartingPos(initialChainPos *state.ChainPos) (*stat
 		}
 		c.chain = chain
 
-		info, err := c.transport.GetBlockchainInfo()
+		info, err := c.rpc.GetBlockchainInfo()
 		if err != nil {
 			return nil, err
 		}
@@ -204,7 +192,7 @@ func (c *ChainFollower) FetchStartingPos(initialChainPos *state.ChainPos) (*stat
 				WaitingForNextHash: false,
 			}, nil
 		} else {
-			firstHeight, err := c.transport.GetBlockCount()
+			firstHeight, err := c.rpc.GetBlockCount()
 			if err != nil {
 				return nil, err
 			}
@@ -215,7 +203,7 @@ func (c *ChainFollower) FetchStartingPos(initialChainPos *state.ChainPos) (*stat
 				firstHeight = 0
 			}
 
-			firstBlockHash, err := c.transport.GetBlockHash(firstHeight)
+			firstBlockHash, err := c.rpc.GetBlockHash(firstHeight)
 			if err != nil {
 				return nil, err
 			}

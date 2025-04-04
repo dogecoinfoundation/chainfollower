@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 
 	"dogecoin.org/chainfollower/internal/config"
-	"dogecoin.org/chainfollower/internal/transport"
 	"dogecoin.org/chainfollower/internal/types"
 )
 
@@ -27,7 +26,7 @@ type rpcResponse struct {
 }
 
 type RpcTransport struct {
-	transport.Transport
+	RpcTransportInterface
 	RpcClient *rpc.Client
 	config    *config.Config
 	Id        atomic.Uint64

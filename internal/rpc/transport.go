@@ -1,8 +1,8 @@
-package transport
+package rpc
 
 import "dogecoin.org/chainfollower/internal/types"
 
-type Transport interface {
+type RpcTransportInterface interface {
 	GetBlock(hash string) (*types.Block, error)
 	GetBlockHeader(hash string) (*types.BlockHeader, error)
 	GetBlockCount() (int64, error)
