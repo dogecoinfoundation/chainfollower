@@ -27,7 +27,6 @@ type ChainFollower struct {
 	transport          transport.Transport
 	chain              *doge.ChainParams
 	Commands           chan any                         // receive ReSyncChainFollowerCmd etc.
-	confirmations      int                              // required number of block confirmations.
 	stopping           bool                             // set to exit the main loop.
 	SetSync            *commands.ReSyncChainFollowerCmd // pending ReSync command.
 	Messages           chan messages.Message            // send messages to the main loop.
@@ -58,13 +57,9 @@ func (c *ChainFollower) handleSignals() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
-		for {
-			select {
-			case sig := <-sigCh: // sigterm/sigint caught
-				fmt.Printf("Caught %v signal, shutting down\n", sig)
-				c.Stop()
-				continue
-			}
+		for sig := range sigCh {
+			fmt.Printf("Caught %v signal, shutting down\n", sig)
+			c.Stop()
 		}
 	}()
 }
@@ -115,7 +110,7 @@ func (c *ChainFollower) serviceMain(chainState *state.ChainPos) {
 		} else {
 
 			oldChainPos := chainPos
-			chainPos, err = c.rollbackToOnChainBlock(blockHeader.PreviousBlockHash, chainPos)
+			chainPos, err = c.rollbackToOnChainBlock(blockHeader.PreviousBlockHash)
 			if err != nil {
 				log.Println("ChainFollower: rollbackToOnChainBlock failed:", err)
 				return
@@ -144,7 +139,7 @@ func (c *ChainFollower) serviceMain(chainState *state.ChainPos) {
 //     - Update Position
 // LOOP
 
-func (c *ChainFollower) rollbackToOnChainBlock(fromHash string, oldPos *state.ChainPos) (*state.ChainPos, error) {
+func (c *ChainFollower) rollbackToOnChainBlock(fromHash string) (*state.ChainPos, error) {
 	for {
 		// Fetch the block header for the previous block.
 		log.Println("ChainFollower: fetching previous header:", fromHash)
@@ -160,7 +155,11 @@ func (c *ChainFollower) rollbackToOnChainBlock(fromHash string, oldPos *state.Ch
 			// c.checkShutdown() // loops must check for shutdown.
 		} else {
 			// Found an on-chain block: roll back all chainstate above this block-height.
-			pos := &state.ChainPos{block.Hash, block.Height, false}
+			pos := &state.ChainPos{
+				BlockHash:          block.Hash,
+				BlockHeight:        block.Height,
+				WaitingForNextHash: false,
+			}
 			return pos, nil
 		}
 	}
@@ -180,7 +179,7 @@ func (c *ChainFollower) FetchStartingPos(initialChainPos *state.ChainPos) (*stat
 			log.Println("ChainFollower: Block#0 on Core Node:", genesisHash)
 			log.Println("ChainFollower: The Genesis block does not match any of our ChainParams")
 			log.Println("ChainFollower: Please connect to a Dogecoin Core Node")
-			c.sleepForRetry(nil, WRONG_CHAIN_DELAY)
+			c.sleepForRetry(WRONG_CHAIN_DELAY)
 			continue
 		}
 		c.chain = chain
@@ -192,14 +191,18 @@ func (c *ChainFollower) FetchStartingPos(initialChainPos *state.ChainPos) (*stat
 
 		if info.InitialBlockDownload {
 			log.Println("ChainFollower: waiting for Core initial block download")
-			c.sleepForRetry(nil, WAIT_INITIAL_BLOCK)
+			c.sleepForRetry(WAIT_INITIAL_BLOCK)
 			continue
 		}
 
 		if initialChainPos.BlockHash != "" {
 			log.Println("ChainFollower: RESUME SYNC :", initialChainPos.BlockHeight)
 
-			return &state.ChainPos{initialChainPos.BlockHash, initialChainPos.BlockHeight, false}, nil
+			return &state.ChainPos{
+				BlockHash:          initialChainPos.BlockHash,
+				BlockHeight:        initialChainPos.BlockHeight,
+				WaitingForNextHash: false,
+			}, nil
 		} else {
 			firstHeight, err := c.transport.GetBlockCount()
 			if err != nil {
@@ -217,12 +220,16 @@ func (c *ChainFollower) FetchStartingPos(initialChainPos *state.ChainPos) (*stat
 				return nil, err
 			}
 
-			return &state.ChainPos{firstBlockHash, firstHeight, false}, nil
+			return &state.ChainPos{
+				BlockHash:          firstBlockHash,
+				BlockHeight:        firstHeight,
+				WaitingForNextHash: false,
+			}, nil
 		}
 	}
 }
 
-func (c *ChainFollower) sleepForRetry(err error, delay time.Duration) {
+func (c *ChainFollower) sleepForRetry(delay time.Duration) {
 	if delay == 0 {
 		delay = RETRY_DELAY
 	}
