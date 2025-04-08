@@ -10,9 +10,9 @@ import (
 
 	"dogecoin.org/chainfollower/internal/commands"
 	"dogecoin.org/chainfollower/internal/doge"
-	"dogecoin.org/chainfollower/internal/messages"
-	"dogecoin.org/chainfollower/internal/rpc"
 	"dogecoin.org/chainfollower/internal/state"
+	"dogecoin.org/chainfollower/pkg/messages"
+	"dogecoin.org/chainfollower/pkg/rpc"
 )
 
 const (
@@ -81,7 +81,7 @@ func (c *ChainFollower) serviceMain(chainState *state.ChainPos) {
 
 		if blockHeader.IsOnChain() {
 			if !chainPos.WaitingForNextHash {
-				fmt.Println("ChainFollower: GetBlock", chainPos.BlockHash)
+				// fmt.Println("ChainFollower: GetBlock", chainPos.BlockHash)
 				block, err := c.rpc.GetBlock(blockHeader.Hash)
 				if err != nil {
 					log.Println("ChainFollower: GetBlock failed:", err)

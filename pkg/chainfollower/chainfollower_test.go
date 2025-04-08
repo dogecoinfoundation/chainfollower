@@ -3,10 +3,10 @@ package chainfollower
 import (
 	"testing"
 
-	"dogecoin.org/chainfollower/internal/messages"
-	"dogecoin.org/chainfollower/internal/rpc"
 	"dogecoin.org/chainfollower/internal/state"
-	"dogecoin.org/chainfollower/internal/types"
+	"dogecoin.org/chainfollower/pkg/messages"
+	"dogecoin.org/chainfollower/pkg/rpc"
+	"dogecoin.org/chainfollower/pkg/types"
 )
 
 func TestBlockMessageReceived(t *testing.T) {

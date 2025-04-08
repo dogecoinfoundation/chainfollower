@@ -3,11 +3,11 @@ package main
 import (
 	"log"
 
-	"dogecoin.org/chainfollower/internal/config"
-	"dogecoin.org/chainfollower/internal/messages"
-	"dogecoin.org/chainfollower/internal/rpc"
-	"dogecoin.org/chainfollower/internal/store"
 	"dogecoin.org/chainfollower/pkg/chainfollower"
+	"dogecoin.org/chainfollower/pkg/config"
+	"dogecoin.org/chainfollower/pkg/messages"
+	"dogecoin.org/chainfollower/pkg/rpc"
+	"dogecoin.org/chainfollower/pkg/store"
 )
 
 func main() {

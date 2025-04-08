@@ -1,6 +1,6 @@
 package rpc
 
-import "dogecoin.org/chainfollower/internal/types"
+import "dogecoin.org/chainfollower/pkg/types"
 
 type RpcTransportInterface interface {
 	GetBlock(hash string) (*types.Block, error)

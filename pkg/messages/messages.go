@@ -2,7 +2,7 @@ package messages
 
 import (
 	"dogecoin.org/chainfollower/internal/state"
-	"dogecoin.org/chainfollower/internal/types"
+	"dogecoin.org/chainfollower/pkg/types"
 )
 
 type Message interface {

@@ -9,8 +9,8 @@ import (
 	"net/rpc"
 	"sync/atomic"
 
-	"dogecoin.org/chainfollower/internal/config"
-	"dogecoin.org/chainfollower/internal/types"
+	"dogecoin.org/chainfollower/pkg/config"
+	"dogecoin.org/chainfollower/pkg/types"
 )
 
 type rpcRequest struct {
