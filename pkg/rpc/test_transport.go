@@ -3,7 +3,7 @@ package rpc
 import (
 	"fmt"
 
-	"dogecoin.org/chainfollower/pkg/types"
+	"github.com/dogecoinfoundation/chainfollower/pkg/types"
 )
 
 type TestRpcTransport struct {

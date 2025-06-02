@@ -1,4 +1,4 @@
-module dogecoin.org/chainfollower
+module github.com/dogecoinfoundation/chainfollower
 
 go 1.24.0
 

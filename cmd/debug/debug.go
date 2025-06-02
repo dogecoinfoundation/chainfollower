@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"dogecoin.org/chainfollower/pkg/config"
-	"dogecoin.org/chainfollower/pkg/rpc"
+	"github.com/dogecoinfoundation/chainfollower/pkg/config"
+	"github.com/dogecoinfoundation/chainfollower/pkg/rpc"
 )
 
 func main() {

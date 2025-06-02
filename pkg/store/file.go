@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"dogecoin.org/chainfollower/pkg/state"
+	"github.com/dogecoinfoundation/chainfollower/pkg/state"
 )
 
 func LoadChainPos(path string) (*state.ChainPos, error) {

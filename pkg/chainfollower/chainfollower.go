@@ -8,11 +8,11 @@ import (
 	"syscall"
 	"time"
 
-	"dogecoin.org/chainfollower/internal/commands"
-	"dogecoin.org/chainfollower/internal/doge"
-	"dogecoin.org/chainfollower/pkg/messages"
-	"dogecoin.org/chainfollower/pkg/rpc"
-	"dogecoin.org/chainfollower/pkg/state"
+	"github.com/dogecoinfoundation/chainfollower/internal/commands"
+	"github.com/dogecoinfoundation/chainfollower/internal/doge"
+	"github.com/dogecoinfoundation/chainfollower/pkg/messages"
+	"github.com/dogecoinfoundation/chainfollower/pkg/rpc"
+	"github.com/dogecoinfoundation/chainfollower/pkg/state"
 )
 
 const (
