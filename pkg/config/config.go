@@ -8,6 +8,7 @@ type Config struct {
 	RpcUser string `toml:"rpc_user"`
 	RpcPass string `toml:"rpc_pass"`
 	ZmqUrl  string `toml:"zmq_url"`
+	DbUrl   string `toml:"db_url"`
 }
 
 func LoadConfig(path string) (*Config, error) {

@@ -159,7 +159,7 @@ func (t *RpcTransport) Request(method string, params []any) (*json.RawMessage, e
 	}
 	// check for error response
 	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("json-rpc error status: %v", res.StatusCode)
+		return nil, fmt.Errorf("json-rpc error status: %v | %v", res.StatusCode, string(res_bytes))
 	}
 	// cannot use json.NewDecoder: "The decoder introduces its own buffering
 	// and may read data from r beyond the JSON values requested."

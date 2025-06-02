@@ -1,7 +1,7 @@
 package messages
 
 import (
-	"dogecoin.org/chainfollower/internal/state"
+	"dogecoin.org/chainfollower/pkg/state"
 	"dogecoin.org/chainfollower/pkg/types"
 )
 

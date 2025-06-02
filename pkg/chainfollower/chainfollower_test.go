@@ -3,9 +3,9 @@ package chainfollower
 import (
 	"testing"
 
-	"dogecoin.org/chainfollower/internal/state"
 	"dogecoin.org/chainfollower/pkg/messages"
 	"dogecoin.org/chainfollower/pkg/rpc"
+	"dogecoin.org/chainfollower/pkg/state"
 	"dogecoin.org/chainfollower/pkg/types"
 )
 

@@ -10,9 +10,9 @@ import (
 
 	"dogecoin.org/chainfollower/internal/commands"
 	"dogecoin.org/chainfollower/internal/doge"
-	"dogecoin.org/chainfollower/internal/state"
 	"dogecoin.org/chainfollower/pkg/messages"
 	"dogecoin.org/chainfollower/pkg/rpc"
+	"dogecoin.org/chainfollower/pkg/state"
 )
 
 const (
