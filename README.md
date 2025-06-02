@@ -1,5 +1,5 @@
 # Chain Follower
-Library to make it super simple to sync blocks/transactions from the L1.
+Library to make it super simple to listen for blocks/transactions from the L1.
 
 ## Running the 'sample' app
 `go run .\cmd\chainfollower\chainfollower.go`
