@@ -19,14 +19,22 @@ func main() {
 	rpcClient := rpc.NewRpcTransport(config)
 	chainfollower := chainfollower.NewChainFollower(rpcClient)
 
-	chainPos, err := store.LoadChainPos("position.json")
+	initialChainPos, err := store.LoadChainPos("position.json")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	messageChan := chainfollower.Start(chainPos)
+	chainPos, err := chainfollower.FetchStartingPos(initialChainPos)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	for message := range messageChan {
+	message, err := chainfollower.GetNextMessage(chainPos)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for {
 		switch msg := message.(type) {
 		case messages.BlockMessage:
 			log.Println("Received message from chainfollower:")
@@ -34,14 +42,23 @@ func main() {
 			log.Println(msg.ChainPos)
 
 			store.SaveChainPos("data.json", msg.ChainPos)
+
+			chainPos = msg.ChainPos
 		case messages.RollbackMessage:
 			log.Println("Received rollback message from chainfollower:")
 			log.Println(msg.OldChainPos)
 			log.Println(msg.NewChainPos)
 
 			store.SaveChainPos("data.json", msg.NewChainPos)
+
+			chainPos = msg.NewChainPos
 		default:
 			log.Println("Received unknown message from chainfollower:")
+		}
+
+		message, err = chainfollower.GetNextMessage(chainPos)
+		if err != nil {
+			log.Fatal(err)
 		}
 	}
 }
