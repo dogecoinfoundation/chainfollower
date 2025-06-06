@@ -105,7 +105,7 @@ func TestRollbackMessage(t *testing.T) {
 		Confirmations:     -1,
 	})
 
-	chainPos, err := follower.fetchStartingPos(initialChainPos)
+	chainPos, err := follower.FetchStartingPos(initialChainPos)
 	if err != nil {
 		t.Errorf("Error fetching starting pos: %v", err)
 	}
