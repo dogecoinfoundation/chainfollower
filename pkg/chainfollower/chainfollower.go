@@ -35,6 +35,10 @@ func NewChainFollower(rpc rpc.RpcTransportInterface) *ChainFollower {
 	return &ChainFollower{rpc: rpc, MessageChannelSize: 0}
 }
 
+func (c *ChainFollower) FetchStartingPos(initialChainPos *state.ChainPos) (*state.ChainPos, error) {
+	return c.fetchStartingPos(initialChainPos)
+}
+
 func (c *ChainFollower) GetNextMessage(chainPos *state.ChainPos) (messages.Message, error) {
 	blockHeader, err := c.rpc.GetBlockHeader(chainPos.BlockHash)
 	if err != nil {
@@ -112,7 +116,7 @@ func (c *ChainFollower) rollbackToOnChainBlock(fromHash string) (*state.ChainPos
 	}
 }
 
-func (c *ChainFollower) FetchStartingPos(initialChainPos *state.ChainPos) (*state.ChainPos, error) {
+func (c *ChainFollower) fetchStartingPos(initialChainPos *state.ChainPos) (*state.ChainPos, error) {
 	// Retry loop for transaction error or wrong-chain error.
 	for {
 		genesisHash, err := c.rpc.GetBlockHash(0)
