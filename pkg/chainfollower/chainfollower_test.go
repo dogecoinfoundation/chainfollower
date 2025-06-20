@@ -1,13 +1,47 @@
 package chainfollower
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/dogecoinfoundation/chainfollower/pkg/messages"
 	"github.com/dogecoinfoundation/chainfollower/pkg/rpc"
 	"github.com/dogecoinfoundation/chainfollower/pkg/state"
 	"github.com/dogecoinfoundation/chainfollower/pkg/types"
 )
+
+func TestShutdown(t *testing.T) {
+	testTransport := rpc.NewTestRpcTransport()
+	follower := NewChainFollower(testTransport)
+
+	testTransport.AddBlockAndHeader(&types.Block{
+		Hash:          "1a91e3dace36e2be3bf030a65679fe821aa1d6ef92e7c9902eb318182c355691",
+		Confirmations: 1,
+	}, &types.BlockHeader{
+		Hash:          "1a91e3dace36e2be3bf030a65679fe821aa1d6ef92e7c9902eb318182c355691",
+		NextBlockHash: "0000000000000000000000000000000000000000000000000000000000000000",
+	})
+
+	follower.Start(&state.ChainPos{
+		BlockHash:   "1a91e3dace36e2be3bf030a65679fe821aa1d6ef92e7c9902eb318182c355691",
+		BlockHeight: 0,
+	})
+
+	timer := time.NewTimer(1 * time.Second)
+
+	for {
+		select {
+		case <-timer.C:
+			if !follower.stopping {
+				follower.Stop()
+				return
+			}
+		case <-follower.Messages:
+			fmt.Println("Message received")
+		}
+	}
+}
 
 func TestBlockMessageReceived(t *testing.T) {
 	testTransport := rpc.NewTestRpcTransport()
