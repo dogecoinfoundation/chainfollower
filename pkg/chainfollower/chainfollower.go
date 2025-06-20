@@ -1,7 +1,11 @@
 package chainfollower
 
 import (
+	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/dogecoinfoundation/chainfollower/internal/commands"
@@ -35,58 +39,91 @@ func NewChainFollower(rpc rpc.RpcTransportInterface) *ChainFollower {
 	return &ChainFollower{rpc: rpc, MessageChannelSize: 0}
 }
 
-func (c *ChainFollower) FetchStartingPos(initialChainPos *state.ChainPos) (*state.ChainPos, error) {
-	return c.fetchStartingPos(initialChainPos)
+func (c *ChainFollower) Start(chainState *state.ChainPos) chan messages.Message {
+	go c.handleSignals()
+
+	c.Messages = make(chan messages.Message, c.MessageChannelSize)
+
+	go c.serviceMain(chainState)
+
+	return c.Messages
 }
 
-func (c *ChainFollower) GetNextMessage(chainPos *state.ChainPos) (messages.Message, error) {
-	blockHeader, err := c.rpc.GetBlockHeader(chainPos.BlockHash)
+func (c *ChainFollower) Stop() {
+	close(c.Messages)
+}
+
+func (c *ChainFollower) handleSignals() {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		for sig := range sigCh {
+			fmt.Printf("Caught %v signal, shutting down\n", sig)
+			c.Stop()
+		}
+	}()
+}
+
+func (c *ChainFollower) serviceMain(chainState *state.ChainPos) {
+	chainPos, err := c.fetchStartingPos(chainState)
+
 	if err != nil {
-		log.Println("ChainFollower: GetBlockHeader failed:", err)
-		return nil, err
+		log.Println("ChainFollower: fetchStartingPos failed:", err)
+		return
 	}
 
-	if blockHeader.IsOnChain() {
-		if !chainPos.WaitingForNextHash {
-			// fmt.Println("ChainFollower: GetBlock", chainPos.BlockHash)
-			block, err := c.rpc.GetBlock(blockHeader.Hash)
-			if err != nil {
-				log.Println("ChainFollower: GetBlock failed:", err)
-				return nil, err
+	for {
+		blockHeader, err := c.rpc.GetBlockHeader(chainPos.BlockHash)
+		if err != nil {
+			log.Println("ChainFollower: GetBlockHeader failed:", err)
+			return
+		}
+
+		if blockHeader.IsOnChain() {
+			if !chainPos.WaitingForNextHash {
+				// fmt.Println("ChainFollower: GetBlock", chainPos.BlockHash)
+				block, err := c.rpc.GetBlock(blockHeader.Hash)
+				if err != nil {
+					log.Println("ChainFollower: GetBlock failed:", err)
+					return
+				}
+
+				chainPos.WaitingForNextHash = true
+
+				c.Messages <- messages.BlockMessage{
+					Block:    block,
+					ChainPos: chainPos,
+				}
 			}
 
-			chainPos.WaitingForNextHash = true
+			chainPos.WaitingForNextHash = blockHeader.NextBlockHash == ""
 
-			return messages.BlockMessage{
-				Block:    block,
-				ChainPos: chainPos,
-			}, nil
+			if blockHeader.NextBlockHash != "" {
+				chainPos.BlockHash = blockHeader.NextBlockHash
+				chainPos.BlockHeight = blockHeader.Height
+			}
+
+			// TODO : Rethink this
+			if chainPos.WaitingForNextHash {
+				time.Sleep(1 * time.Second)
+			}
+		} else {
+
+			oldChainPos := chainPos
+			chainPos, err = c.rollbackToOnChainBlock(blockHeader.PreviousBlockHash)
+			if err != nil {
+				log.Println("ChainFollower: rollbackToOnChainBlock failed:", err)
+				return
+			}
+
+			oldChainPos.WaitingForNextHash = false
+			chainPos.WaitingForNextHash = false
+
+			c.Messages <- messages.RollbackMessage{
+				OldChainPos: oldChainPos,
+				NewChainPos: chainPos,
+			}
 		}
-
-		chainPos.WaitingForNextHash = blockHeader.NextBlockHash == ""
-
-		if blockHeader.NextBlockHash != "" {
-			chainPos.BlockHash = blockHeader.NextBlockHash
-			chainPos.BlockHeight = blockHeader.Height
-		}
-
-		return c.GetNextMessage(chainPos)
-	} else {
-
-		oldChainPos := chainPos
-		chainPos, err = c.rollbackToOnChainBlock(blockHeader.PreviousBlockHash)
-		if err != nil {
-			log.Println("ChainFollower: rollbackToOnChainBlock failed:", err)
-			return nil, err
-		}
-
-		oldChainPos.WaitingForNextHash = false
-		chainPos.WaitingForNextHash = false
-
-		return messages.RollbackMessage{
-			OldChainPos: oldChainPos,
-			NewChainPos: chainPos,
-		}, nil
 	}
 }
 
