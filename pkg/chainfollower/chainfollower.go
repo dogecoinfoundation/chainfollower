@@ -1,6 +1,7 @@
 package chainfollower
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -31,12 +32,15 @@ type ChainFollower struct {
 	SetSync            *commands.ReSyncChainFollowerCmd // pending ReSync command.
 	Messages           chan messages.Message            // send messages to the main loop.
 	MessageChannelSize int
+	context            context.Context
+	cancel             context.CancelFunc
 
 	// receive signals from the main loop.
 }
 
 func NewChainFollower(rpc rpc.RpcTransportInterface) *ChainFollower {
-	return &ChainFollower{rpc: rpc, MessageChannelSize: 0}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &ChainFollower{rpc: rpc, MessageChannelSize: 0, context: ctx, cancel: cancel}
 }
 
 func (c *ChainFollower) Start(chainState *state.ChainPos) chan messages.Message {
@@ -50,7 +54,10 @@ func (c *ChainFollower) Start(chainState *state.ChainPos) chan messages.Message 
 }
 
 func (c *ChainFollower) Stop() {
-	close(c.Messages)
+	if !c.stopping {
+		c.cancel()
+		c.stopping = true
+	}
 }
 
 func (c *ChainFollower) handleSignals() {
@@ -73,55 +80,60 @@ func (c *ChainFollower) serviceMain(chainState *state.ChainPos) {
 	}
 
 	for {
-		blockHeader, err := c.rpc.GetBlockHeader(chainPos.BlockHash)
-		if err != nil {
-			log.Println("ChainFollower: GetBlockHeader failed:", err)
+		select {
+		case <-c.context.Done():
 			return
-		}
-
-		if blockHeader.IsOnChain() {
-			if !chainPos.WaitingForNextHash {
-				// fmt.Println("ChainFollower: GetBlock", chainPos.BlockHash)
-				block, err := c.rpc.GetBlock(blockHeader.Hash)
-				if err != nil {
-					log.Println("ChainFollower: GetBlock failed:", err)
-					return
-				}
-
-				chainPos.WaitingForNextHash = true
-
-				c.Messages <- messages.BlockMessage{
-					Block:    block,
-					ChainPos: chainPos,
-				}
-			}
-
-			chainPos.WaitingForNextHash = blockHeader.NextBlockHash == ""
-
-			if blockHeader.NextBlockHash != "" {
-				chainPos.BlockHash = blockHeader.NextBlockHash
-				chainPos.BlockHeight = blockHeader.Height
-			}
-
-			// TODO : Rethink this
-			if chainPos.WaitingForNextHash {
-				time.Sleep(1 * time.Second)
-			}
-		} else {
-
-			oldChainPos := chainPos
-			chainPos, err = c.rollbackToOnChainBlock(blockHeader.PreviousBlockHash)
+		default:
+			blockHeader, err := c.rpc.GetBlockHeader(chainPos.BlockHash)
 			if err != nil {
-				log.Println("ChainFollower: rollbackToOnChainBlock failed:", err)
+				log.Println("ChainFollower: GetBlockHeader failed:", err)
 				return
 			}
 
-			oldChainPos.WaitingForNextHash = false
-			chainPos.WaitingForNextHash = false
+			if blockHeader.IsOnChain() {
+				if !chainPos.WaitingForNextHash {
+					// fmt.Println("ChainFollower: GetBlock", chainPos.BlockHash)
+					block, err := c.rpc.GetBlock(blockHeader.Hash)
+					if err != nil {
+						log.Println("ChainFollower: GetBlock failed:", err)
+						return
+					}
 
-			c.Messages <- messages.RollbackMessage{
-				OldChainPos: oldChainPos,
-				NewChainPos: chainPos,
+					chainPos.WaitingForNextHash = true
+
+					c.Messages <- messages.BlockMessage{
+						Block:    block,
+						ChainPos: chainPos,
+					}
+				}
+
+				chainPos.WaitingForNextHash = blockHeader.NextBlockHash == ""
+
+				if blockHeader.NextBlockHash != "" {
+					chainPos.BlockHash = blockHeader.NextBlockHash
+					chainPos.BlockHeight = blockHeader.Height
+				}
+
+				// TODO : Rethink this
+				if chainPos.WaitingForNextHash {
+					time.Sleep(1 * time.Second)
+				}
+			} else {
+
+				oldChainPos := chainPos
+				chainPos, err = c.rollbackToOnChainBlock(blockHeader.PreviousBlockHash)
+				if err != nil {
+					log.Println("ChainFollower: rollbackToOnChainBlock failed:", err)
+					return
+				}
+
+				oldChainPos.WaitingForNextHash = false
+				chainPos.WaitingForNextHash = false
+
+				c.Messages <- messages.RollbackMessage{
+					OldChainPos: oldChainPos,
+					NewChainPos: chainPos,
+				}
 			}
 		}
 	}
