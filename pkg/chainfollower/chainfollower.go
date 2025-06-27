@@ -24,7 +24,13 @@ const (
 	BLOCKS_PER_COMMIT  = 10                     // number of blocks per database commit.
 )
 
+type ChainFollowerInterface interface {
+	Start(chainState *state.ChainPos) chan messages.Message
+	Stop()
+}
+
 type ChainFollower struct {
+	ChainFollowerInterface
 	rpc                rpc.RpcTransportInterface
 	chain              *doge.ChainParams
 	Commands           chan any                         // receive ReSyncChainFollowerCmd etc.
