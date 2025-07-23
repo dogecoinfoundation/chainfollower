@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
+	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
@@ -78,7 +80,27 @@ func (c *ChainFollower) handleSignals() {
 }
 
 func (c *ChainFollower) serviceMain(chainState *state.ChainPos) {
-	chainPos, err := c.fetchStartingPos(chainState)
+	const maxRetries = 5
+	const baseDelay = time.Second
+
+	var chainPos *state.ChainPos
+	var err error
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		chainPos, err = c.fetchStartingPos(chainState)
+		if err == nil {
+			break
+		}
+
+		log.Printf("ChainFollower: fetchStartingPos failed (attempt %d/%d): %v", attempt+1, maxRetries, err)
+
+		// Exponential backoff with jitter
+		backoff := time.Duration(float64(baseDelay) * math.Pow(2, float64(attempt)))
+		jitter := time.Duration(rand.Int63n(int64(backoff / 2)))
+		sleep := backoff + jitter
+
+		time.Sleep(sleep)
+	}
 
 	if err != nil {
 		log.Println("ChainFollower: fetchStartingPos failed:", err)
